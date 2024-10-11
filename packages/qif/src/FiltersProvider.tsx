@@ -1,4 +1,4 @@
-import { isNil } from 'ramda';
+import { isNil } from "ramda";
 import {
   createContext,
   useCallback,
@@ -8,12 +8,12 @@ import {
   type Dispatch,
   type PropsWithChildren,
   type SetStateAction,
-} from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { FilterProviderProps, FiltersContextType, FiltersValue } from './types';
-
+} from "react";
+import { useSearchParams } from "react-router-dom";
+import { FilterProviderProps, FiltersContextType, FiltersValue } from "./types";
+import qs from "qs";
 export const FiltersProvider = <T extends FiltersValue>(
-  props: PropsWithChildren<FilterProviderProps<T>>,
+  props: PropsWithChildren<FilterProviderProps<T>>
 ) => {
   const { children, filters, syncSearchParams, onBeforStateChange } = props;
   //NOTICE : We had to reassign the value here to solve the typescript problem
@@ -24,12 +24,16 @@ export const FiltersProvider = <T extends FiltersValue>(
 
   const register = useCallback(
     (name: keyof T, defaultValue: unknown) => {
-      const searchValue = new URLSearchParams(window.location.search).get(String(name));
+      const searchValue = new URLSearchParams(window.location.search).get(
+        String(name)
+      );
 
       let value = defaultValue;
 
       if (syncSearchParams && searchValue !== null) {
-        value = searchValue?.includes(',') ? searchValue.split(',') : searchValue;
+        value = searchValue?.includes(",")
+          ? searchValue.split(",")
+          : searchValue;
       }
 
       setFilters((prevFilters) => ({ ...prevFilters, [name]: value }));
@@ -39,7 +43,7 @@ export const FiltersProvider = <T extends FiltersValue>(
         [name]: defaultValue,
       };
     },
-    [setFilters, syncSearchParams],
+    [setFilters, syncSearchParams]
   );
 
   const unregister = useCallback(
@@ -60,7 +64,7 @@ export const FiltersProvider = <T extends FiltersValue>(
         });
       }
     },
-    [setFilters, syncSearchParams, setSearchParams],
+    [setFilters, syncSearchParams, setSearchParams]
   );
 
   const setValue = useCallback(
@@ -68,39 +72,49 @@ export const FiltersProvider = <T extends FiltersValue>(
       setFilters((prevFilters) =>
         onBeforStateChange
           ? onBeforStateChange({ ...prevFilters, [name]: value }, name)
-          : { ...prevFilters, [name]: value },
+          : { ...prevFilters, [name]: value }
       );
 
       // Update search params
       if (syncSearchParams) {
         setSearchParams((prev) => {
-          const newSearchParams = new URLSearchParams(prev);
+          const prevSearchParams = qs.parse(qs.stringify(prev), {
+            ignoreQueryPrefix: true,
+          });
 
           if (isNil(value)) {
-            newSearchParams.delete(String(name)); // Remove if value is null or undefined
+            delete prevSearchParams[String(name)];
           } else {
-            newSearchParams.set(String(name), String(value));
+            // Set or update the query parameter
+            prevSearchParams[String(name)] = value as unknown as any;
           }
 
-          return newSearchParams;
+          return qs.stringify(prevSearchParams);
         });
       }
     },
-    [setSearchParams, setFilters, syncSearchParams],
+    [setSearchParams, setFilters, syncSearchParams]
   );
 
-  const getValue = useCallback((name: keyof T) => (filters ? filters[name] : null), [filters]);
+  const getValue = useCallback(
+    (name: keyof T) => (filters ? filters[name] : null),
+    [filters]
+  );
 
   const reset = useCallback(() => {
-    setFilters( onBeforStateChange ? onBeforStateChange(defaultValueRef.current, 'clear') :  defaultValueRef.current);
+    setFilters(
+      onBeforStateChange
+        ? onBeforStateChange(defaultValueRef.current, "clear")
+        : defaultValueRef.current
+    );
     if (syncSearchParams) {
       setSearchParams(new URLSearchParams());
     }
-  }, [setFilters, setSearchParams, syncSearchParams,onBeforStateChange]);
+  }, [setFilters, setSearchParams, syncSearchParams, onBeforStateChange]);
 
   const isResetDisabled = useMemo(
     () => JSON.stringify(filters) === JSON.stringify(defaultValueRef.current),
-    [filters],
+    [filters]
   );
 
   return (
@@ -121,12 +135,14 @@ export const FiltersProvider = <T extends FiltersValue>(
   );
 };
 
-const FiltersContext = createContext<FiltersContextType<FiltersValue> | null>(null);
+const FiltersContext = createContext<FiltersContextType<FiltersValue> | null>(
+  null
+);
 
 export const useFilters = <T extends FiltersValue>() => {
   const context = useContext(FiltersContext) as FiltersContextType<T> | null;
   if (!context) {
-    throw new Error('useFilters must be used within a FiltersProvider');
+    throw new Error("useFilters must be used within a FiltersProvider");
   }
   return context;
 };
